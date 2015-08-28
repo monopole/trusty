@@ -1,0 +1,2 @@
+# trusty
+static web shelf
