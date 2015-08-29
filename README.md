@@ -9,10 +9,12 @@ unzip goappeng.zip
 more go_appengine/VERSION
 export PATH=~/go_appengine:$PATH
 cd ~/pumpkin/src/github.com/monopole
+rm ~/.appcfg_oauth2_tokens 
 ~/go_appengine/goapp serve trusty
-emacs trusty/app.yaml # application: lyrical-gantry-618
+# vi trusty/app.yaml # application: lyrical-gantry-618
 ~/go_appengine/goapp deploy trusty
 # then visit https://lyrical-gantry-618.appspot.com/
 # or http://trustybike.net/
 
 ```
+
