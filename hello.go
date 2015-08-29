@@ -10,5 +10,5 @@ func init() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "v23.namespace.root=127.0.0.1:23000")
+	fmt.Fprint(w, "v23.namespace.root=127.0.0.2:23000")
 }
