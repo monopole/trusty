@@ -10,5 +10,9 @@ more go_appengine/VERSION
 export PATH=~/go_appengine:$PATH
 cd ~/pumpkin/src/github.com/monopole
 ~/go_appengine/goapp serve trusty
+emacs trusty/app.yaml # application: lyrical-gantry-618
+~/go_appengine/goapp deploy trusty
+# then visit https://lyrical-gantry-618.appspot.com/
+# or http://trustybike.net/
 
 ```
