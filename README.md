@@ -1,2 +1,14 @@
 # trusty
 static web shelf
+
+```
+cd
+curl https://storage.googleapis.com/appengine-sdks/featured/go_appengine_sdk_linux_amd64-1.9.25.zip -o goappeng.zip
+mv go_appengine go_appengine_old
+unzip goappeng.zip 
+more go_appengine/VERSION
+export PATH=~/go_appengine:$PATH
+cd ~/pumpkin/src/github.com/monopole
+~/go_appengine/goapp serve trusty
+
+```
