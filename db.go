@@ -8,18 +8,17 @@ import (
 )
 
 type HostRecord struct {
-	Author  string
-	Content string
-	Date    time.Time
-	Id      int64
+	Author   string
+	Content  string
+	Date     time.Time
+	TimeNice string
+	Id       int64
 }
 
 type entRecord struct {
-	name       string
-	kind       string
-	idStr      string
-	noIdInt    int64
-	noAncestor *datastore.Key
+	name  string
+	kind  string
+	idStr string
 }
 
 type Db struct {
@@ -41,24 +40,19 @@ func NewDbHandle(ctx appengine.Context) *Db {
 			// scan the DB, so reflection must be used.
 			kind: "hostRecord",
 
-			// Changing 'idSt' breaks lookups
+			// Changing 'idStr' breaks lookups
 			idStr: "idOfTheSingleRecord",
-
-			// Intentionally blank, so idStr is used.
-			noIdInt: 0,
-
-			// Intentionally nil, so we always change the 'root' entity.
-			noAncestor: nil,
 		},
 		sortField: "-Date",
 		maxRows:   10,
 	}
 }
 
-// Key used to recover all data.
+// Key of parent entity of all entities in data store.
+// One parent used to assure consistency.
 func (db *Db) parentKey() *datastore.Key {
 	return datastore.NewKey(db.ctx, db.entity.kind,
-		db.entity.idStr, db.entity.noIdInt, db.entity.noAncestor)
+		db.entity.idStr, 0 /* no int Id */, nil /* no ancestor */)
 }
 
 // Set the same parent key on every HostRecord entity to ensure each
@@ -66,39 +60,49 @@ func (db *Db) parentKey() *datastore.Key {
 // entity group will be consistent. However, the write rate to a
 // single entity group should be limited to ~1/second.
 func (db *Db) Write(g *HostRecord) (err error) {
-	origKey := db.parentKey()
-	log.Printf(" ")
-	log.Printf(" ")
-	var key *datastore.Key
-	log.Printf("Writing with parentKey = %v", origKey)
-	key = datastore.NewIncompleteKey(db.ctx, db.entity.name, origKey)
-	log.Printf("Writing with key = %v", key)
+	parentKey := db.parentKey()
+	key := datastore.NewIncompleteKey(db.ctx, db.entity.name, parentKey)
+	if chatty {
+		log.Printf(" ")
+		log.Printf(" ")
+		log.Printf("Writing with parentKey = %v", parentKey)
+		log.Printf("              item key = %v", key)
+	}
 	_, err = datastore.Put(db.ctx, key, g)
 	return
 }
 
 func (db *Db) Delete(id int64) (err error) {
-	log.Printf("Delete with id = %d", id)
 	key := datastore.NewKey(db.ctx, db.entity.name, "", id, db.parentKey())
-	log.Printf("Delete with key = %v", key)
+	if chatty {
+		log.Printf("Delete with id = %d", id)
+		log.Printf("           key = %v", key)
+	}
 	err = datastore.Delete(db.ctx, key)
 	return
 }
 
-// Ancestor queries like that below are strongly consistent with the
-// High Replication Datastore. Queries that span entity groups are
-// eventually consistent. If we omitted the .Ancestor from this
-// query there would be a slight chance that freshly written data
-// would not show up in a query.
+// Ancestor queries like the one below are strongly consistent with
+// the High Replication Datastore. Queries that span entity groups are
+// eventually consistent. If .Ancestor were omitted from this query
+// there would be a slight chance that freshly written data would not
+// show up in a query.
 func (db *Db) Read() (result []HostRecord, err error) {
 	key := db.parentKey()
-	log.Printf("Reading with key = %v", key)
+	if chatty {
+		log.Printf("Reading with parentKey = %v", key)
+	}
 	q := datastore.NewQuery(db.entity.name).Ancestor(key).Order(
 		db.sortField).Limit(db.maxRows)
 	result = make([]HostRecord, 0, db.maxRows)
 	keys, err := q.GetAll(db.ctx, &result)
 	for i, k := range keys {
+		// Grab the ID so deletion can be offered.
 		result[i].Id = k.IntID()
+	}
+	for i, k := range result {
+		//		result[i].TimeNice = k.Date.Format(time.RFC850)
+		result[i].TimeNice = k.Date.Format(time.RFC850)
 	}
 	return
 }
