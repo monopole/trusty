@@ -21,3 +21,9 @@ indexes:
   properties:
   - name: Date
     direction: desc
+
+- kind: Hostss
+  ancestor: yes
+  properties:
+  - name: Date
+    direction: desc

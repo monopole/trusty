@@ -3,9 +3,10 @@ package hostlist
 import (
 	"appengine"
 	"appengine/user"
-	"fmt"
 	"html/template"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -15,31 +16,37 @@ const (
 
 func init() {
 	http.HandleFunc("/", root)
-	http.HandleFunc("/show", show)
-	http.HandleFunc("/form", form)
-	http.HandleFunc("/sign", sign)
+	http.HandleFunc("/addHost", addHost)
+	http.HandleFunc("/delete", delete)
 }
 
 func root(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
+	if demandLogin && getUser(ctx, w, r) == nil {
+		return
+	}
 	result, err := NewDbHandle(ctx).Read()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := guestbookTemplate.Execute(w, result); err != nil {
+	if err := reportTemplate.Execute(w, result); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func sign(w http.ResponseWriter, r *http.Request) {
+// Should use an xsrf token here.  Meh.
+func addHost(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
+	u := user.Current(c)
+	if u == nil {
+		http.Error(w, "No user!", http.StatusInternalServerError)
+		return
+	}
 	g := HostRecord{
 		Content: r.FormValue("content"),
 		Date:    time.Now(),
-	}
-	if u := user.Current(c); u != nil {
-		g.Author = u.String()
+		Author:  u.String(),
 	}
 	err := NewDbHandle(c).Write(&g)
 	if err != nil {
@@ -49,83 +56,61 @@ func sign(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-var guestbookTemplate = template.Must(template.New("book").Parse(reportTemplateHTML))
+func delete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.FormValue("idToDelete"), 10, 64)
+	log.Printf("Id to delete = %d", id)
+	err = NewDbHandle(appengine.NewContext(r)).Delete(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+var reportTemplate = template.Must(template.New("whatevs").Parse(reportTemplateHTML))
 
 const reportTemplateHTML = `
 <html>
   <head>
-    <title>Go Guestbook</title>
+    <title>Volley Hosts</title>
   </head>
   <body>
+    <form action="/addHost" method="post">
+      <div><textarea name="content" rows="3" cols="60"></textarea></div>
+      <div><input type="submit" value="Add namespace.root"></div>
+    </form>
     {{range .}}
       {{with .Author}}
-        <p><b>{{.}}</b> wrote:</p>
+        <b>{{.}}</b>
       {{else}}
-        <p>An anonymous person wrote:</p>
+        anonymous
       {{end}}
-      <pre>{{.Content}}</pre>
+      :  v23.namespace.root={{.Content}}
+      <form action="/delete" method="post">
+        <input type="hidden" name="idToDelete" value="{{.Id}}">
+        <input type="submit" value="delete it">
+      </form>
     {{end}}
-    <form action="/sign" method="post">
-      <div><textarea name="content" rows="3" cols="60"></textarea></div>
-      <div><input type="submit" value="Sign Guestbook"></div>
-    </form>
   </body>
 </html>
 `
 
-var signTemplate = template.Must(template.New("sign").Parse(signTemplateHTML))
-
-const signTemplateHTML = `
-<html>
-  <body>
-    <p>-----------------</p>
-    <pre>{{.}}</pre>
-    <p>-----------------</p>
-  </body>
-</html>
-`
-
-func getUser(w http.ResponseWriter, req *http.Request) *user.User {
-	c := appengine.NewContext(req)
-	u := user.Current(c)
+func getUser(
+	ctx appengine.Context,
+	w http.ResponseWriter,
+	req *http.Request) *user.User {
+	u := user.Current(ctx)
 	if u != nil {
 		return u
 	}
-	url, err := user.LoginURL(c, req.URL.String())
+	url, err := user.LoginURL(ctx, req.URL.String())
 	if err == nil {
 		// Redirect to login.
 		w.Header().Set("Location", url)
 		w.WriteHeader(http.StatusFound)
 	} else {
+		// Show error page.
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	return nil
-}
-
-func form(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, guestbookForm)
-}
-
-const guestbookForm = `
-<html>
-  <body>
-    <form action="/sign" method="post">
-      <div><textarea name="content" rows="3" cols="60"></textarea></div>
-      <div><input type="submit" value="Sign"></div>
-    </form>
-  </body>
-</html>
-`
-
-func show(w http.ResponseWriter, r *http.Request) {
-	userName := "unknown"
-	if demandLogin {
-		u := getUser(w, r)
-		if u == nil {
-			return
-		}
-		userName = u.String()
-	}
-	fmt.Fprintf(w, "Hello %s\n", userName)
-	fmt.Fprintf(w, "v23.namespace.root=127.0.0.5:23000\n")
 }
