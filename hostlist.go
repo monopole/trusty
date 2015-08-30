@@ -87,11 +87,11 @@ const reportTemplateHTML = `
   </head>
   <body>
     <form action="/addHost" method="post">
-      <textarea name="content" rows="2" cols="60"></textarea>
+      <input type="text" name="content"></textarea>
       <input type="submit" value="Add another">
     </form>
     <table>
-    {{range .}}
+      {{range .}}
       <tr>
         <td>
           v23.namespace.root={{.Content}} 
@@ -100,7 +100,7 @@ const reportTemplateHTML = `
           {{.TimeNice}}
         </td>
         <td>
-          {{with .Author}} <b>{{.}}</b>  {{else}} anonymous {{end}}
+          {{with .Author}} <b>{{.}}</b> {{else}} anonymous {{end}}
         </td>
         <td>
           <form action="/deleteHost" method="post">
@@ -109,7 +109,7 @@ const reportTemplateHTML = `
           </form>
         </td>
       </tr>
-    {{end}}
+      {{end}}
     </table>
   </body>
 </html>
