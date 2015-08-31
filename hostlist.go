@@ -34,7 +34,7 @@ func root(w http.ResponseWriter, r *http.Request) {
 		IsAuthorized bool
 		Records      []HostRecord
 	}{
-		u != nil && isAuthorized(u),
+		isAuthorized(u),
 		result,
 	}
 	if err := reportTemplate.Execute(w, data); err != nil {
@@ -150,14 +150,20 @@ func getUser(
 	return nil
 }
 
-var authorizedUsers = []string{"test@example.com", "jeff.regan"}
+var authorizedUsers = []string{"test@example.com", "jeff.regan", "jeff.regan@gmail.com", "jregan", "jeffrey regan"}
 
 func isAuthorized(u *user.User) bool {
-	author := u.String()
-	for _, item := range authorizedUsers {
-		if author == item {
-			return true
-		}
-	}
+	return true
+	/*
+	if u==nil {
 	return false
+	}
+			author := u.String()
+			for _, item := range authorizedUsers {
+				if author == item {
+					return true
+				}
+			}
+			return false
+	*/
 }
