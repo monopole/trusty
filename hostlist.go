@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	demandLogin = true
-	chatty      = false
+	chatty = false
 )
 
 func init() {
@@ -23,15 +22,22 @@ func init() {
 
 func root(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
-	if demandLogin && getUser(c, w, r) == nil {
-		return
-	}
+	// Want to show hostnames to anyone, but only allow authorized users
+	// to see extra data, and get controls to add and delete.
 	result, err := NewDbHandle(c).Read()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := reportTemplate.Execute(w, result); err != nil {
+	u := user.Current(c)
+	data := struct {
+		IsAuthorized bool
+		Records      []HostRecord
+	}{
+		u != nil && isAuthorized(u),
+		result,
+	}
+	if err := reportTemplate.Execute(w, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -86,28 +92,32 @@ const reportTemplateHTML = `
     <title>Volley Hosts</title>
   </head>
   <body>
-    <form action="/addHost" method="post">
-      <input type="text" name="content"></textarea>
-      <input type="submit" value="Add another">
-    </form>
+    {{if $.IsAuthorized}}
+      <form action="/addHost" method="post">
+        <input type="text" name="content"></textarea>
+        <input type="submit" value="Add another">
+      </form>
+    {{end}}
     <table>
-      {{range .}}
+      {{range .Records}}
       <tr>
         <td>
           v23.namespace.root={{.Content}} 
         </td>
-        <td>
-          {{.TimeNice}}
-        </td>
-        <td>
-          {{with .Author}} <b>{{.}}</b> {{else}} anonymous {{end}}
-        </td>
-        <td>
-          <form action="/deleteHost" method="post">
-          <input type="hidden" name="idToDelete" value="{{.Id}}">
-          <input type="submit" value="delete this">
-          </form>
-        </td>
+        {{if $.IsAuthorized}}
+          <td>
+            {{.TimeNice}}
+          </td>
+          <td>
+            {{with .Author}} <b>{{.}}</b> {{else}} anonymous {{end}}
+          </td>
+          <td>
+            <form action="/deleteHost" method="post">
+            <input type="hidden" name="idToDelete" value="{{.Id}}">
+            <input type="submit" value="delete this">
+            </form>
+          </td>
+        {{end}}
       </tr>
       {{end}}
     </table>
